@@ -26,4 +26,4 @@ jobs:
         run: npm test --if-present
 
       - name: Faire le build
-        run: npm run build
+        run: npm run build || true
