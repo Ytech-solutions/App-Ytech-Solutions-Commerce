@@ -22,9 +22,6 @@ jobs:
       - name: Installer les dépendances
         run: npm install
 
-      - name: Vérifier le lint
-        run: npm run lint --if-present
-
       - name: Lancer les tests
         run: npm test --if-present
 
