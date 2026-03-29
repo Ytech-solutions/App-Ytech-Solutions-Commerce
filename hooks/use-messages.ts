@@ -26,7 +26,7 @@ interface ApiResponse {
 
 export function useMessages() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchMessages = async (status?: string | null, priority?: string | null) => {

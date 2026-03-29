@@ -20,11 +20,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
-    // Check if user has admin role
-    if (token.role !== 'admin') {
-      const loginUrl = new URL('/connexion', request.url)
-      loginUrl.searchParams.set('error', 'access_denied')
-      return NextResponse.redirect(loginUrl)
+    // Check if user is the specific admin email
+    if (token.email !== 'jadisara33@gmail.com') {
+      const homeUrl = new URL('/', request.url)
+      return NextResponse.redirect(homeUrl)
     }
   }
 

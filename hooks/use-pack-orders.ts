@@ -29,7 +29,7 @@ interface ApiResponse {
 
 export function usePackOrders() {
   const [orders, setOrders] = useState<PackOrder[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchOrders = async () => {

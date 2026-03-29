@@ -79,13 +79,13 @@ export const authOptions: NextAuthOptions = {
               `INSERT INTO users (prenom, name, email, avatar_url, provider, provider_id, email_verified, created_at) 
                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
               [
-                profile.given_name || user.name?.split(' ')[0] || '',
+                (profile as any)?.given_name || user.name?.split(' ')[0] || '',
                 user.name,
                 user.email,
                 user.image,
                 'google',
                 account.providerAccountId,
-                user.email_verified || false
+                (user as any).email_verified || false
               ]
             )
           } else {
@@ -104,16 +104,16 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role
-        token.firstName = user.firstName
-        token.lastName = user.lastName
+        token.role = user.email === 'jadisara33@gmail.com' ? 'admin' : 'user'
+        token.firstName = (user as any).firstName || undefined
+        token.lastName = (user as any).lastName || undefined
       }
       return token
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.sub
-        session.user.role = token.role as string
+        session.user.id = token.sub || ''
+        session.user.role = token.email === 'jadisara33@gmail.com' ? 'admin' : 'user'
         session.user.firstName = token.firstName as string
         session.user.lastName = token.lastName as string
       }
@@ -124,8 +124,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
   },
   pages: {
-    signIn: "/connexion",
-    signUp: "/connexion"
+    signIn: "/connexion"
   }
 }
 

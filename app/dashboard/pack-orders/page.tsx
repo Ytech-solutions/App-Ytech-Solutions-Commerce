@@ -47,14 +47,14 @@ const statusConfig = {
 
 const validationConfig = {
   true: { 
-    label: "Validé", 
+    label: "Confirmé", 
     color: "bg-green-500/20 text-green-500",
     icon: Check 
   },
   false: { 
-    label: "Non validé", 
-    color: "bg-gray-500/20 text-gray-500",
-    icon: X 
+    label: "En attente", 
+    color: "bg-yellow-500/20 text-yellow-500",
+    icon: Clock 
   }
 }
 
@@ -65,7 +65,7 @@ const paymentConfig = {
     icon: Clock 
   },
   paid: { 
-    label: "Payé", 
+    label: "Payé et confirmé", 
     color: "bg-green-500/20 text-green-500",
     icon: CreditCard 
   },

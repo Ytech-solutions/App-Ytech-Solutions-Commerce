@@ -22,7 +22,7 @@ interface ApiResponse {
 
 export function useDevis() {
   const [devis, setDevis] = useState<Devis[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchDevis = async (status?: string | null, search?: string | null) => {

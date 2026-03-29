@@ -143,7 +143,6 @@ const packages: Package[] = [
   },
 ]
 
-
 interface PackageModalProps {
   pkg: Package | null
   isOpen: boolean
@@ -272,7 +271,6 @@ export function PackagesSection() {
   }
 
   const handleOrderComplete = (pkg: Package) => {
-    // Rafraîchir la page ou faire autre action si nécessaire
     console.log('Commande terminée pour le pack:', pkg.name)
   }
 
@@ -297,95 +295,94 @@ export function PackagesSection() {
             <span className="gradient-text">transparentes</span>
           </h2>
           <p className="text-muted-foreground text-lg leading-relaxed">
-            Choisissez le pack qui correspond a vos besoins. Tous nos prix sont fixes et sans surprise.
+            Choisissez le pack qui correspond à vos besoins. Tous nos prix sont fixes et sans surprise.
           </p>
         </div>
 
-
         {/* Creation packages */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {packages.map((pkg, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "relative glass rounded-2xl p-6 flex flex-col transition-all duration-500 hover:scale-[1.02]",
-                  pkg.highlighted && "ring-2 ring-primary glow",
-                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-                )}
-                style={{ transitionDelay: `${index * 100 + 200}ms` }}
-              >
-                {/* Badge */}
-                {pkg.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full flex items-center gap-1">
-                    {pkg.highlighted ? <Star className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                    {pkg.badge}
-                  </div>
-                )}
-
-                {/* Header */}
-                <div className="text-center mb-6 pt-2">
-                  <h3 className="text-xl font-bold mb-1">{pkg.name}</h3>
-                  <p className="text-sm text-muted-foreground">{pkg.subtitle}</p>
+          {packages.map((pkg, index) => (
+            <div
+              key={index}
+              className={cn(
+                "relative glass rounded-2xl p-6 flex flex-col transition-all duration-500 hover:scale-[1.02]",
+                pkg.highlighted && "ring-2 ring-primary glow",
+                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+              )}
+              style={{ transitionDelay: `${index * 100 + 200}ms` }}
+            >
+              {/* Badge */}
+              {pkg.badge && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full flex items-center gap-1">
+                  {pkg.highlighted ? <Star className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                  {pkg.badge}
                 </div>
+              )}
 
-                {/* Price */}
-                <div className="text-center mb-6">
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold gradient-text">{pkg.price}</span>
-                    {pkg.period && <span className="text-muted-foreground">DHS</span>}
-                  </div>
-                  {pkg.period && (
-                    <span className="text-sm text-muted-foreground">Paiement {pkg.period}</span>
-                  )}
-                </div>
-
-                {/* Description */}
-                <p className="text-sm text-muted-foreground text-center mb-6 leading-relaxed">
-                  {pkg.description}
-                </p>
-
-                {/* Features */}
-                <ul className="space-y-3 mb-8 flex-grow">
-                  {pkg.features.slice(0, 5).map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm">
-                      <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                  {pkg.features.length > 5 && (
-                    <li className="text-sm text-primary font-medium">
-                      + {pkg.features.length - 5} autres avantages
-                    </li>
-                  )}
-                </ul>
-
-                {/* CTA */}
-                <div className="space-y-2">
-                  <Button 
-                    className={cn(
-                      "w-full group",
-                      pkg.highlighted && "glow"
-                    )}
-                    onClick={() => handleOrderPack(pkg)}
-                    variant={pkg.highlighted ? "default" : "outline"}
-                  >
-                    Commander ce pack
-                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                  <Button 
-                    className={cn(
-                      "w-full group",
-                      pkg.highlighted && "glow"
-                    )}
-                    onClick={() => setSelectedPackage(pkg)}
-                  >
-                    Voir les détails
-                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </div>
+              {/* Header */}
+              <div className="text-center mb-6 pt-2">
+                <h3 className="text-xl font-bold mb-1">{pkg.name}</h3>
+                <p className="text-sm text-muted-foreground">{pkg.subtitle}</p>
               </div>
-            ))}
-          </div>
+
+              {/* Price */}
+              <div className="text-center mb-6">
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-4xl font-bold gradient-text">{pkg.price}</span>
+                  {pkg.period && <span className="text-muted-foreground">DHS</span>}
+                </div>
+                {pkg.period && (
+                  <span className="text-sm text-muted-foreground">Paiement {pkg.period}</span>
+                )}
+              </div>
+
+              {/* Description */}
+              <p className="text-sm text-muted-foreground text-center mb-6 leading-relaxed">
+                {pkg.description}
+              </p>
+
+              {/* Features */}
+              <ul className="space-y-3 mb-8 flex-grow">
+                {pkg.features.slice(0, 5).map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+                {pkg.features.length > 5 && (
+                  <li className="text-sm text-primary font-medium">
+                    + {pkg.features.length - 5} autres avantages
+                  </li>
+                )}
+              </ul>
+
+              {/* CTA */}
+              <div className="space-y-2">
+                <Button 
+                  className={cn(
+                    "w-full group",
+                    pkg.highlighted && "glow"
+                  )}
+                  onClick={() => pkg.id === "enterprise" && pkg.name === "Devis" ? window.location.href = '/devis' : handleOrderPack(pkg)}
+                  variant={pkg.highlighted ? "default" : "outline"}
+                >
+                  {pkg.id === "enterprise" && pkg.name === "Devis" ? "Demander un devis" : "Commander ce pack"}
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button 
+                  className={cn(
+                    "w-full group",
+                    pkg.highlighted && "glow"
+                  )}
+                  onClick={() => setSelectedPackage(pkg)}
+                >
+                  Voir les détails
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* Custom quote CTA */}
         <div className={`mt-16 text-center transition-all duration-700 delay-500 ${

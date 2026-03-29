@@ -147,18 +147,6 @@ export default memo(function DashboardPage() {
 
   return (
     <div className="space-y-8 w-full">
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card border border-border rounded-lg p-6 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-              <span className="text-sm font-medium">Chargement des données...</span>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
         <div>
@@ -262,12 +250,7 @@ export default memo(function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-border">
-            {loadingDevis ? (
-              <div className="p-8 text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-                <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
-              </div>
-            ) : devis.length === 0 ? (
+            {devis.length === 0 ? (
               <div className="p-8 text-center">
                 <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">Aucun devis pour le moment</p>
@@ -323,12 +306,7 @@ export default memo(function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-border">
-            {loadingMessages ? (
-              <div className="p-8 text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-                <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
-              </div>
-            ) : messages.length === 0 ? (
+            {messages.length === 0 ? (
               <div className="p-8 text-center">
                 <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">Aucun message pour le moment</p>
@@ -382,12 +360,7 @@ export default memo(function DashboardPage() {
           </Link>
         </div>
         <div className="divide-y divide-border">
-          {loadingOrders ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-              <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
-            </div>
-          ) : orders.length === 0 ? (
+          {orders.length === 0 ? (
             <div className="p-8 text-center">
               <Package className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Aucune commande de pack pour le moment</p>
