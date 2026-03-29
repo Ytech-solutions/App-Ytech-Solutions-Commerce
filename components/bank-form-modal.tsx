@@ -1,64 +1,212 @@
 "use client"
 
 import { useState } from 'react'
-import { Check, ArrowRight, CreditCard, Calendar, Shield } from 'lucide-react'
+import { X, CreditCard, Check, AlertCircle, Loader2, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { CardIcon } from '@/components/ui/card-icons'
+
+// Icônes de cartes
+class CardIcons {
+  static visa = () => (
+    <svg className="w-8 h-5" viewBox="0 0 32 20" fill="none">
+      <rect width="32" height="20" rx="2" fill="#1A1F71"/>
+      <text x="8" y="14" fill="white" fontSize="8" fontWeight="bold">VISA</text>
+    </svg>
+  )
+  
+  static mastercard = () => (
+    <svg className="w-8 h-5" viewBox="0 0 32 20" fill="none">
+      <rect width="32" height="20" rx="2" fill="#EB001B"/>
+      <circle cx="11" cy="10" r="6" fill="#F79E1B"/>
+      <circle cx="21" cy="10" r="6" fill="#FF5F00"/>
+    </svg>
+  )
+  
+  static generic = () => (
+    <div className="w-8 h-5 bg-gradient-to-r from-gray-400 to-gray-600 rounded-sm flex items-center justify-center">
+      <CreditCard className="w-4 h-3 text-white" />
+    </div>
+  )
+}
+
+interface Package {
+  id: string
+  name: string
+  price: string
+  features: string[]
+}
+
+interface ClientInfo {
+  name: string
+  email: string
+  phone: string
+  company: string
+  city: string
+}
 
 interface BankFormModalProps {
-  pkg: any
+  pkg: Package
+  clientInfo: ClientInfo
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
 }
 
-export default function BankFormModal({ pkg, isOpen, onClose }: BankFormModalProps) {
-  if (!isOpen || !pkg) return null
-
-  console.log('BankFormModal - pkg reçu:', pkg)
-  console.log('BankFormModal - isOpen:', isOpen)
-  
+export default function BankFormModal({ pkg, clientInfo, isOpen, onClose, onSuccess }: BankFormModalProps) {
   const [formData, setFormData] = useState({
     cardNumber: '',
     cardName: '',
     expiryDate: '',
     cvv: '',
-    acceptTerms: false
+    saveCard: false
   })
-  const [cardType, setCardType] = useState<'visa' | 'mastercard' | 'amex' | null>(null)
-  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
+  
+  const [errors, setErrors] = useState({
+    cardNumber: '',
+    cardName: '',
+    expiryDate: '',
+    cvv: ''
+  })
+  
+  const [showErrors, setShowErrors] = useState(false)
+  const [cardType, setCardType] = useState<'visa' | 'mastercard' | 'generic' | null>(null)
+  
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentSuccess, setPaymentSuccess] = useState(false)
 
-  // Détecter le type de carte
-  const detectCardType = (number: string) => {
-    const cleaned = number.replace(/\s/g, '')
-    if (cleaned.startsWith('4')) {
-      setCardType('visa')
-      console.log('Carte Visa détectée')
+  if (!isOpen) return null
+
+  const validateForm = () => {
+    const newErrors = {
+      cardNumber: '',
+      cardName: '',
+      expiryDate: '',
+      cvv: ''
     }
-    else if (cleaned.startsWith('5') || cleaned.startsWith('2')) {
-      setCardType('mastercard')
-      console.log('Carte Mastercard détectée')
+    
+    let isValid = true
+    
+    // Validation numéro de carte
+    const cardNumberRegex = /^[0-9]{13,19}$/
+    const cleanCardNumber = formData.cardNumber.replace(/\s/g, '')
+    if (!cleanCardNumber) {
+      newErrors.cardNumber = "Le numéro de carte est requis"
+      isValid = false
+    } else if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+      newErrors.cardNumber = "Le numéro de carte doit contenir entre 13 et 19 chiffres"
+      isValid = false
+    } else if (!cardNumberRegex.test(cleanCardNumber)) {
+      newErrors.cardNumber = "Le numéro de carte ne doit contenir que des chiffres"
+      isValid = false
     }
-    else if (cleaned.startsWith('3')) {
-      setCardType('amex')
-      console.log('Carte AMEX détectée')
+    // Suppression de la validation Luhn pour accepter n'importe quels chiffres
+    
+    // Validation nom du titulaire
+    if (!formData.cardName.trim()) {
+      newErrors.cardName = "Le nom du titulaire est requis"
+      isValid = false
+    } else if (formData.cardName.length < 2) {
+      newErrors.cardName = "Le nom doit contenir au moins 2 caractères"
+      isValid = false
+    } else if (formData.cardName.length > 50) {
+      newErrors.cardName = "Le nom ne doit pas dépasser 50 caractères"
+      isValid = false
+    } else if (!/^[a-zA-Z\s\-']+$/.test(formData.cardName)) {
+      newErrors.cardName = "Le nom ne peut contenir que des lettres, espaces, tirets et apostrophes"
+      isValid = false
     }
-    else {
-      setCardType(null)
-      console.log('Type de carte non détecté')
+    
+    // Validation date d'expiration
+    if (!formData.expiryDate.trim()) {
+      newErrors.expiryDate = "La date d'expiration est requise"
+      isValid = false
+    } else {
+      // Format MM/AA
+      const match = formData.expiryDate.match(/^(\d{2})\/(\d{2})$/)
+      if (!match) {
+        newErrors.expiryDate = "Format invalide (MM/AA)"
+        isValid = false
+      } else {
+        const month = parseInt(match[1])
+        const yearSuffix = parseInt(match[2])
+        const currentYear = new Date().getFullYear()
+        const currentMonth = new Date().getMonth() + 1
+        
+        // Validation du mois (1-12)
+        if (month < 1 || month > 12) {
+          newErrors.expiryDate = "Le mois doit être entre 01 et 12"
+          isValid = false
+        } else {
+          // Conversion AA en AAAA (ex: 25 -> 2025, 99 -> 1999)
+          let fullYear = yearSuffix + 2000
+          if (yearSuffix > 99) {
+            newErrors.expiryDate = "L'année doit être sur 2 chiffres (AA)"
+            isValid = false
+          } else if (yearSuffix > 50) {
+            // Pour les années comme 99, on considère 1999
+            fullYear = yearSuffix + 1900
+          }
+          
+          // Validation que l'année n'est pas trop loin dans le passé
+          if (fullYear < currentYear - 10) {
+            newErrors.expiryDate = "La carte est trop ancienne"
+            isValid = false
+          } else if (fullYear > currentYear + 20) {
+            newErrors.expiryDate = "La date est trop lointaine"
+            isValid = false
+          } else if (fullYear < currentYear || (fullYear === currentYear && month < currentMonth)) {
+            newErrors.expiryDate = "La carte est expirée"
+            isValid = false
+          }
+        }
+      }
     }
+    
+    // Validation CVV
+    const cvvRegex = /^[0-9]{3,4}$/
+    if (!formData.cvv.trim()) {
+      newErrors.cvv = "Le CVV est requis"
+      isValid = false
+    } else if (!cvvRegex.test(formData.cvv)) {
+      newErrors.cvv = "Le CVV doit contenir 3 ou 4 chiffres"
+      isValid = false
+    } else {
+      // Validation CVV selon le type de carte
+      const cleanCardNumber = formData.cardNumber.replace(/\s/g, '')
+      const isAmex = cleanCardNumber.startsWith('3')
+      
+      if (isAmex && formData.cvv.length !== 4) {
+        newErrors.cvv = "American Express nécessite un CVV à 4 chiffres"
+        isValid = false
+      } else if (!isAmex && formData.cvv.length !== 3) {
+        newErrors.cvv = "Le CVV doit contenir 3 chiffres"
+        isValid = false
+      }
+    }
+    
+    setErrors(newErrors)
+    return isValid
   }
 
-  // Formater le numéro de carte
+  const detectCardType = (cardNumber: string): 'visa' | 'mastercard' | 'generic' | null => {
+    const cleanNumber = cardNumber.replace(/\s/g, '')
+    
+    if (cleanNumber.startsWith('4')) {
+      return 'visa'
+    } else if (cleanNumber.startsWith('5') || cleanNumber.startsWith('2')) {
+      return 'mastercard'
+    } else if (cleanNumber.length >= 1) {
+      return 'generic'
+    }
+    
+    return null
+  }
+
   const formatCardNumber = (value: string) => {
-    const cleaned = value.replace(/\s/g, '')
+    const cleaned = value.replace(/\D/g, '')
     const formatted = cleaned.replace(/(.{4})/g, '$1 ').trim()
-    return formatted
+    return formatted.slice(0, 19) // Max 19 chars (16 digits + 3 spaces)
   }
 
-  // Formater la date d'expiration
   const formatExpiryDate = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
     if (cleaned.length >= 2) {
@@ -67,323 +215,348 @@ export default function BankFormModal({ pkg, isOpen, onClose }: BankFormModalPro
     return cleaned
   }
 
-  // Valider la date d'expiration
-  const isExpiryDateValid = (expiry: string) => {
-    if (!expiry || !expiry.includes('/')) return false
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target
     
-    const [month, year] = expiry.split('/')
-    const currentDate = new Date()
-    const currentYear = currentDate.getFullYear() % 100
-    const currentMonth = currentDate.getMonth() + 1
+    if (name === 'referenceNumber') {
+      const formatted = formatCardNumber(value)
+      setFormData(prev => ({ ...prev, cardNumber: formatted }))
+      setCardType(detectCardType(formatted))
+    } else if (name === 'validityPeriod') {
+      setFormData(prev => ({ ...prev, expiryDate: formatExpiryDate(value) }))
+    } else if (name === 'securityCode') {
+      setFormData(prev => ({ ...prev, cvv: value.replace(/\D/g, '').slice(0, 4) }))
+    } else if (name === 'fullName') {
+      setFormData(prev => ({ ...prev, cardName: value }))
+    } else if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
     
-    const expYear = parseInt(year)
-    const expMonth = parseInt(month)
-    
-    if (expYear < currentYear) return false
-    if (expYear === currentYear && expMonth < currentMonth) return false
-    if (expMonth < 1 || expMonth > 12) return false
-    
-    return true
-  }
-
-  // Générer les mois et années pour le sélecteur
-  const months = [
-    '01', '02', '03', '04', '05', '06', 
-    '07', '08', '09', '10', '11', '12'
-  ]
-  
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 10 }, (_, i) => (currentYear + i).toString().slice(-2))
-
-  const selectMonthYear = (month: string, year: string) => {
-    setFormData(prev => ({ ...prev, expiryDate: `${month}/${year}` }))
-    setShowMonthYearPicker(false)
+    // Clear error when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
     
-    // Simuler le traitement du paiement
-    setTimeout(() => {
-      setIsSubmitting(false)
-      setShowSuccess(true)
+    if (!validateForm()) {
+      setShowErrors(true)
+      return
+    }
+    
+    setIsProcessing(true)
+    
+    try {
+      // Simuler le traitement du paiement (réduit à 1.5s)
+      await new Promise(resolve => setTimeout(resolve, 1500))
       
-      // Fermer après 3 secondes
+      // Simuler un paiement réussi
+      setPaymentSuccess(true)
+      
+      // Envoyer l'email de confirmation via l'API (sans bloquer)
+      setTimeout(async () => {
+        try {
+          const response = await fetch('/api/send-payment-confirmation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              packName: pkg.name,
+              packPrice: pkg.price,
+              clientEmail: clientInfo.email,
+              clientName: clientInfo.name,
+            }),
+          })
+          // Pas de logs pour protéger les informations
+        } catch (emailError) {
+          // Erreur silencieuse pour ne pas exposer les informations
+        }
+      }, 100)
+      
       setTimeout(() => {
-        setShowSuccess(false)
         onSuccess()
         onClose()
-      }, 3000)
-    }, 2000)
+        // Reset form
+        setFormData({
+          cardNumber: '',
+          cardName: '',
+          expiryDate: '',
+          cvv: '',
+          saveCard: false
+        })
+        setPaymentSuccess(false)
+      }, 1500)
+      
+    } catch (error) {
+      // Pas de logs d'erreur pour protéger les informations
+    } finally {
+      setIsProcessing(false)
+    }
   }
-
-  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative glass rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-y-auto animate-slide-up">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        <div className="p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-blue-600" />
+      <div 
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      <div className="relative glass rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up">
+        {/* Header */}
+        <div className="sticky top-0 glass border-b border-border p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-primary" />
             </div>
-            <h2 className="text-3xl font-bold mb-2">Paiement Sécurisé</h2>
-            <p className="text-muted-foreground">
-              Finalisez votre commande du pack {pkg?.name || 'Pack'}
-            </p>
-          </div>
-
-          {/* Récapitulatif */}
-          <div className="bg-blue-50 rounded-xl p-6 mb-8">
-            <h3 className="font-semibold text-lg mb-4">Récapitulatif de la commande</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Nom du pack :</span>
-                <span className="font-semibold">{pkg?.name || 'Pack Standard'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Prix :</span>
-                <span className="font-bold text-xl text-blue-600">{pkg?.price || '0'} DHS</span>
-              </div>
+            <div>
+              <h2 className="text-lg font-bold">Paiement par carte</h2>
+              <p className="text-sm text-muted-foreground">Paiement sécurisé SSL</p>
             </div>
           </div>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            disabled={isProcessing}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Formulaire de paiement */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Numéro de carte */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Numéro de carte</label>
+        {/* Content */}
+        <div className="p-6">
+          {!paymentSuccess ? (
+            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off" noValidate>
+              {/* Order Summary */}
+              <div className="bg-secondary/50 rounded-xl p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pack</p>
+                    <p className="font-semibold">{pkg.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">{pkg.price}</p>
+                    <p className="text-xs text-muted-foreground">DHS</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Number */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Numéro de carte *
+                </label>
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="1234 5678 9012 3456"
+                    name="referenceNumber"
                     value={formData.cardNumber}
-                    onChange={(e) => {
-                      const formatted = formatCardNumber(e.target.value)
-                      setFormData(prev => ({ ...prev, cardNumber: formatted }))
-                      // Forcer la détection après chaque changement
-                      setTimeout(() => detectCardType(e.target.value), 100)
-                    }}
-                    className="w-full px-4 py-3 border border-border rounded-lg bg-secondary/50 pr-24"
-                    maxLength={19}
-                    required
-                  />
-                  <CreditCard className="absolute right-3 top-3.5 w-5 h-5 text-muted-foreground" />
-                  {cardType && (
-                    <div className="absolute right-14 top-3.5 flex items-center justify-center">
-                      <CardIcon type={cardType} className="scale-100" />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Nom du titulaire */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-2">Nom du titulaire</label>
-                <input
-                  type="text"
-                  placeholder="Jean Dupont"
-                  value={formData.cardName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cardName: e.target.value }))}
-                  className="w-full px-4 py-3 border border-border rounded-lg bg-secondary/50"
-                  required
-                />
-              </div>
-
-              {/* Date d'expiration */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Date d'expiration</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="MM/AA"
-                    value={formData.expiryDate}
-                    onChange={(e) => {
-                      const formatted = formatExpiryDate(e.target.value)
-                      setFormData(prev => ({ ...prev, expiryDate: formatted }))
-                    }}
-                    onFocus={() => setShowMonthYearPicker(true)}
-                    className={`w-full px-4 py-3 border rounded-lg bg-secondary/50 pr-12 cursor-pointer ${
-                      formData.expiryDate && !isExpiryDateValid(formData.expiryDate) 
-                        ? 'border-red-500 bg-red-50' 
-                        : 'border-border'
+                    onChange={handleInputChange}
+                    placeholder="1234 5678 9012 3456"
+                    className={`w-full px-4 py-3 pr-20 border rounded-lg bg-secondary/50 ${
+                      errors.cardNumber ? 'border-red-500' : 'border-border'
                     }`}
-                    maxLength={5}
-                    required
-                    readOnly
+                    maxLength={19}
+                    disabled={isProcessing}
+                    autoComplete="off"
+                    data-form-type="other"
+                    data-lpignore="true"
+                    {...({'data-com.agilebits.onepassword.user-edited': 'yes'})}
+                    spellCheck={false}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowMonthYearPicker(!showMonthYearPicker)}
-                    className="absolute right-3 top-3.5 flex items-center justify-center p-1 hover:bg-gray-100 rounded"
-                  >
-                    <Calendar className="w-5 h-5 text-blue-600" />
-                  </button>
-                  
-                  {/* Sélecteur Mois/Année */}
-                  {showMonthYearPicker && (
-                    <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 p-4">
-                      <div className="mb-4">
-                        <label className="text-sm font-semibold text-gray-800 mb-3 block">Mois</label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {months.map((month) => (
-                            <button
-                              key={month}
-                              type="button"
-                              onClick={() => {
-                                const year = formData.expiryDate.split('/')[1] || years[0]
-                                selectMonthYear(month, year)
-                              }}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                                formData.expiryDate.startsWith(month) 
-                                  ? 'bg-blue-600 text-white shadow-md transform scale-105' 
-                                  : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'
-                              }`}
-                            >
-                              {month}
-                            </button>
-                          ))}
-                        </div>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {cardType === 'visa' && <CardIcons.visa />}
+                    {cardType === 'mastercard' && <CardIcons.mastercard />}
+                    {cardType === 'generic' && <CardIcons.generic />}
+                    {!cardType && (
+                      <div className="w-8 h-5 bg-gray-200 rounded-sm flex items-center justify-center">
+                        <CreditCard className="w-4 h-3 text-gray-400" />
                       </div>
-                      <div>
-                        <label className="text-sm font-semibold text-gray-800 mb-3 block">Année</label>
-                        <div className="grid grid-cols-5 gap-2">
-                          {years.map((year) => (
-                            <button
-                              key={year}
-                              type="button"
-                              onClick={() => {
-                                const month = formData.expiryDate.split('/')[0] || months[0]
-                                selectMonthYear(month, year)
-                              }}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                                formData.expiryDate.endsWith(year) 
-                                  ? 'bg-blue-600 text-white shadow-md transform scale-105' 
-                                  : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'
-                              }`}
-                            >
-                              {year}
-                            </button>
-                          ))}
-                        </div>
+                    )}
+                  </div>
+                </div>
+                {showErrors && errors.cardNumber && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.cardNumber}
+                  </p>
+                )}
+              </div>
+
+              {/* Card Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Nom du titulaire *
+                </label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.cardName}
+                  onChange={handleInputChange}
+                  placeholder="JEAN DUPONT"
+                  className={`w-full px-4 py-3 border rounded-lg bg-secondary/50 uppercase ${
+                    errors.cardName ? 'border-red-500' : 'border-border'
+                  }`}
+                  disabled={isProcessing}
+                  autoComplete="name"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  {...({'data-com.agilebits.onepassword.user-edited': 'yes'})}
+                  spellCheck={false}
+                />
+                {showErrors && errors.cardName && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.cardName}
+                  </p>
+                )}
+              </div>
+
+              {/* Expiry Date and CVV */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Date d'expiration *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="validityPeriod"
+                      value={formData.expiryDate}
+                      onChange={handleInputChange}
+                      placeholder="--/--"
+                      className={`w-full px-4 py-3 border rounded-lg bg-secondary/50 ${
+                        errors.expiryDate ? 'border-red-500' : 'border-border'
+                      }`}
+                      maxLength={5}
+                      disabled={isProcessing}
+                      autoComplete="off"
+                      data-form-type="other"
+                      data-lpignore="true"
+                      {...({'data-com.agilebits.onepassword.user-edited': 'yes'})}
+                    />
+                  </div>
+                  {showErrors && errors.expiryDate && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.expiryDate}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    CVV *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="securityCode"
+                      value={formData.cvv}
+                      onChange={handleInputChange}
+                      placeholder="123"
+                      className={`w-full px-4 py-3 pr-10 border rounded-lg bg-secondary/50 ${
+                        errors.cvv ? 'border-red-500' : 'border-border'
+                      }`}
+                      maxLength={4}
+                      disabled={isProcessing}
+                      autoComplete="off"
+                      data-form-type="other"
+                      data-lpignore="true"
+                      {...({'data-com.agilebits.onepassword.user-edited': 'yes'})}
+                      spellCheck={false}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-6 h-4 bg-gradient-to-r from-gray-300 to-gray-400 rounded-sm flex items-center justify-center text-xs font-bold text-gray-600">
+                        ?
                       </div>
                     </div>
-                  )}
-                  
-                  {formData.expiryDate && !isExpiryDateValid(formData.expiryDate) && (
-                    <p className="text-xs text-red-500 mt-1">La date doit être dans le futur</p>
-                  )}
-                  {formData.expiryDate && isExpiryDateValid(formData.expiryDate) && (
-                    <p className="text-xs text-green-500 mt-1">Date valide</p>
+                  </div>
+                  {showErrors && errors.cvv && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.cvv}
+                    </p>
                   )}
                 </div>
               </div>
 
-              {/* CVV */}
-              <div>
-                <label className="block text-sm font-medium mb-2">CVV</label>
+              {/* Save Card */}
+              <div className="flex items-center gap-2">
                 <input
-                  type="text"
-                  placeholder="123"
-                  value={formData.cvv}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cvv: e.target.value }))}
-                  className="w-full px-4 py-3 border border-border rounded-lg bg-secondary/50"
-                  maxLength={3}
-                  required
+                  type="checkbox"
+                  name="saveCard"
+                  id="saveCard"
+                  checked={formData.saveCard}
+                  onChange={handleInputChange}
+                  className="rounded border-border"
+                  disabled={isProcessing}
                 />
+                <label htmlFor="saveCard" className="text-sm text-muted-foreground">
+                  Enregistrer cette carte pour les prochains paiements
+                </label>
               </div>
-            </div>
 
-            {/* Conditions */}
-            <div className="flex items-start">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={formData.acceptTerms}
-                onChange={(e) => setFormData(prev => ({ ...prev, acceptTerms: e.target.checked }))}
-                className="mt-1 mr-3"
-                required
-              />
-              <label htmlFor="terms" className="text-sm text-muted-foreground">
-                J'accepte les conditions générales de vente et confirme que les informations fournies sont exactes. 
-                Le paiement sera traité de manière sécurisée.
-              </label>
-            </div>
-
-            {/* Boutons */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white"
-                disabled={isSubmitting || !formData.cardNumber || !formData.cardName || !formData.expiryDate || !formData.cvv || !formData.acceptTerms || !isExpiryDateValid(formData.expiryDate)}
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Traitement en cours...
+              {/* Security Info */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-green-600 mt-0.5" />
+                  <div className="text-xs text-green-800">
+                    <p className="font-semibold mb-1">Paiement 100% sécurisé</p>
+                    <p>Vos informations bancaires sont cryptées et ne seront jamais stockées sur nos serveurs.</p>
                   </div>
-                ) : (
-                  <div className="flex items-center">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Payer {pkg?.price} DHS
-                  </div>
-                )}
-              </Button>
-            </div>
-          </form>
+                </div>
+              </div>
 
-          {/* Sécurité */}
-          <div className="mt-6 text-center text-xs text-muted-foreground">
-            Paiement sécurisé
-          </div>
+              {/* Actions */}
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={onClose}
+                  disabled={isProcessing}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Traitement...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Payer {pkg.price} DHS
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            /* Success State */
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Paiement réussi !</h3>
+              <p className="text-muted-foreground mb-6">
+                Votre paiement a été traité avec succès. Vous allez recevoir un email de confirmation.
+              </p>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Popup de succès */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-sm" />
-          <div className="relative glass rounded-2xl p-8 max-w-md w-full animate-slide-up">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-10 h-10 text-green-600" />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">Paiement réussi !</h3>
-              <p className="text-muted-foreground mb-6">
-                Félicitations ! Votre paiement de {pkg?.price || '0'} DHS pour le pack {pkg?.name || 'Pack'} a été traité avec succès.
-              </p>
-              <div className="text-sm text-green-600 font-medium mb-4">
-                Un email de confirmation vous sera envoyé dans quelques instants.
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Redirection automatique...
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

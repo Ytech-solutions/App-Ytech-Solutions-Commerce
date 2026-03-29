@@ -1,6 +1,7 @@
 "use client"
 
 import { useSession, signOut } from 'next-auth/react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -51,8 +52,16 @@ export function UserDropdown() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {session.user.email === 'jadisara33@gmail.com' && (
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Tableau de bord</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem 
-          onClick={() => signOut({ callbackUrl: '/' })}
+          onClick={() => signOut({ callbackUrl: '/connexion' })}
           className="text-red-600 focus:text-red-600"
         >
           <LogOut className="mr-2 h-4 w-4" />

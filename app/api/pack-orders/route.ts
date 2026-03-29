@@ -17,6 +17,12 @@ const transporter = nodemailer.createTransport({
 async function sendConfirmationEmail(orderData: any) {
   try {
     console.log('Tentative d\'envoi d\'email à:', orderData.client_email)
+    
+    // Vérifier si les variables SMTP sont configurées
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('Configuration SMTP manquante, envoi d\'email désactivé')
+      return false
+    }
 
     const mailOptions = {
       from: process.env.SMTP_USER,
@@ -154,27 +160,48 @@ export async function POST(request: NextRequest) {
       project_description
     } = body
     
-    // Validation
+    // Validation améliorée
     if (!pack_id || !pack_name || !pack_price || !client_name || !client_email) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: 'Champs requis manquants: pack_id, pack_name, pack_price, client_name, client_email' },
         { status: 400 }
       )
     }
     
-    // Insérer dans la base de données
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(client_email)) {
+      return NextResponse.json(
+        { success: false, error: 'Email invalide' },
+        { status: 400 }
+      )
+    }
+    
+    // Vérifier si une commande existe déjà pour cet email et ce pack
+    const existingOrder = await pool.query(
+      'SELECT id FROM pack_orders WHERE client_email = $1 AND pack_id = $2 AND status != $3',
+      [client_email, pack_id, 'cancelled']
+    )
+    
+    if (existingOrder.rows.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Une commande pour ce pack existe déjà pour cet email. Veuillez vérifier vos commandes en cours.' },
+        { status: 409 }
+      )
+    }
+    
+    // Insérer dans la base de données avec statut payé et confirmé
     const result = await pool.query(`
       INSERT INTO pack_orders (
         pack_id, pack_name, pack_price, pack_features,
         client_name, client_email, client_phone, client_company, client_city,
-        project_description, status, is_validated, payment_status,
-        created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        project_description, status, is_validated, payment_status, validated_at, paid_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
       RETURNING *
     `, [
-      pack_id, pack_name, pack_price, JSON.stringify(pack_features),
-      client_name, client_email, client_phone, client_company, client_city,
-      project_description, 'pending', false, 'pending'
+      pack_id, pack_name, pack_price, pack_features || [],
+      client_name, client_email, client_phone || null, client_company || null, client_city || null,
+      project_description || null, 'completed', true, 'paid'
     ])
     
     // Créer l'objet de commande pour l'email
@@ -182,7 +209,7 @@ export async function POST(request: NextRequest) {
       pack_id,
       pack_name,
       pack_price,
-      pack_features,
+      pack_features: pack_features || [],
       client_name,
       client_email,
       client_phone,
@@ -191,21 +218,37 @@ export async function POST(request: NextRequest) {
       project_description
     }
     
-    // Envoyer l'email de confirmation
-    const emailSent = await sendConfirmationEmail(orderData)
-    
-    if (!emailSent) {
-      console.error('Échec de l\'envoi de l\'email de confirmation')
-    }
+    // Envoyer l'email de confirmation en arrière-plan (ne pas bloquer la réponse)
+    sendConfirmationEmail(orderData).catch(error => {
+      console.error('Échec de l\'envoi de l\'email de confirmation:', error)
+    })
     
     return NextResponse.json({
       success: true,
-      data: result.rows[0]
+      data: result.rows[0],
+      message: 'Commande créée avec succès'
     })
   } catch (error) {
     console.error('POST /api/pack-orders error:', error)
+    
+    // Gérer les erreurs spécifiques
+    if (error instanceof Error) {
+      if (error.message.includes('connection')) {
+        return NextResponse.json(
+          { success: false, error: 'Erreur de connexion à la base de données' },
+          { status: 503 }
+        )
+      }
+      if (error.message.includes('duplicate key')) {
+        return NextResponse.json(
+          { success: false, error: 'Une commande similaire existe déjà' },
+          { status: 409 }
+        )
+      }
+    }
+    
     return NextResponse.json(
-      { success: false, error: 'Failed to create pack order' },
+      { success: false, error: 'Erreur serveur interne. Veuillez réessayer plus tard.' },
       { status: 500 }
     )
   }

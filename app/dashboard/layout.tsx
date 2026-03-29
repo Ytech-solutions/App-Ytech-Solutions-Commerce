@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   LayoutDashboard,
@@ -153,12 +154,10 @@ export default function DashboardLayout({
             <Button 
               variant="ghost" 
               className="w-full mt-2 justify-start text-muted-foreground hover:text-destructive"
-              asChild
+              onClick={() => signOut({ callbackUrl: '/connexion' })}
             >
-              <Link href="/">
-                <LogOut className="w-4 h-4 mr-2" />
-                Deconnexion
-              </Link>
+              <LogOut className="w-4 h-4 mr-2" />
+              Deconnexion
             </Button>
           </div>
         </div>
@@ -336,13 +335,15 @@ export default function DashboardLayout({
                       >
                         Paramètres
                       </Link>
-                      <Link
-                        href="/"
-                        className="block px-4 py-2 text-sm text-destructive hover:bg-secondary"
-                        onClick={() => setUserMenuOpen(false)}
+                      <button
+                        className="block px-4 py-2 text-sm text-destructive hover:bg-secondary text-left w-full"
+                        onClick={() => {
+                          setUserMenuOpen(false)
+                          signOut({ callbackUrl: '/connexion' })
+                        }}
                       >
                         Deconnexion
-                      </Link>
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
