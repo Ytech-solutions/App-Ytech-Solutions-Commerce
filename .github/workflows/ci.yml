@@ -1,9 +1,7 @@
-name: CI Pipeline
+name: CI/CD Pipeline - Commerce
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
 
 jobs:
@@ -27,3 +25,21 @@ jobs:
 
       - name: Faire le build
         run: npm run build || true
+
+  deploy:
+    needs: build-and-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Déployer sur la VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
+            git pull origin main
+            npm install
+            npm run build || true
+            pm2 restart App-Ytech-Solutions-Commerce || pm2 start npm --name "App-Ytech-Solutions-Commerce" -- run dev
