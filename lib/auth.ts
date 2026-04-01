@@ -1,4 +1,3 @@
-import NextAuth from "next-auth"
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
@@ -91,7 +90,7 @@ export const authOptions: NextAuthOptions = {
             id: user.id.toString(),
             email: user.email,
             name: user.name,
-            avatar: user.avatar_url,
+            image: user.avatar_url,
             role: user.role
           }
 
@@ -201,6 +200,8 @@ export const authOptions: NextAuthOptions = {
         token.role = user.email === 'jadisara33@gmail.com' ? 'admin' : 'user'
         token.firstName = (user as any).firstName || undefined
         token.lastName = (user as any).lastName || undefined
+        // Ensure avatar is available in session for both credentials and Google
+        token.picture = (user as any).image || (user as any).avatar || (token as any).picture
       }
 
       return token
@@ -213,6 +214,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.email === 'jadisara33@gmail.com' ? 'admin' : 'user'
         session.user.firstName = token.firstName as string
         session.user.lastName = token.lastName as string
+        session.user.image = (token as any).picture as string
       }
       return session
     }
@@ -223,6 +225,19 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
 
   },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Host-next-auth.session-token'
+        : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
+  },
 
   pages: {
 
@@ -231,8 +246,3 @@ export const authOptions: NextAuthOptions = {
   }
 
 }
-
-
-
-export default NextAuth(authOptions)
-
