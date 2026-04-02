@@ -3,11 +3,14 @@ name: Deploy App
 on:
   push:
     branches:
-      - main  
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
-    runs-on: self-hosted 
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -15,7 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce  
+          cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
           npm install
 
       - name: Build app
