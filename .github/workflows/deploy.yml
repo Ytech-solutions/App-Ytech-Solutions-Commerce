@@ -13,35 +13,41 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1️⃣ Checkout الكود
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ تنظيف الملفات القديمة وحذف lockfiles الزائدة
       - name: Clean old files
         run: |
           cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
           rm -rf node_modules .next
-          # حذف pnpm-lock.yaml إذا كان موجوداً (لأنك تستخدم npm)
           rm -f pnpm-lock.yaml
 
-      # 3️⃣ Install dependencies مع حل مشكلة lightningcss
       - name: Install dependencies
         run: |
           cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
           npm install --legacy-peer-deps
-          # تثبيت lightningcss يدوياً للتأكد
-          npm install lightningcss --force
 
-      # 4️⃣ Build التطبيق مع متغير بيئة إضافي
+      # تعديل next.config.js لتعطيل optimizeCss
+      - name: Disable CSS optimization
+        run: |
+          cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
+          # إنشاء next.config.js إذا لم يكن موجوداً
+          if [ ! -f next.config.js ]; then
+            echo "module.exports = { experimental: { optimizeCss: false } }" > next.config.js
+          else
+            # تعديل الملف الموجود (استخدم sed لإضافة السطر)
+            sed -i '/optimizeCss/d' next.config.js
+            sed -i '/experimental: {/a \    optimizeCss: false,' next.config.js
+          fi
+
       - name: Build app
         run: |
           cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
           npm run build
         env:
           NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1  # تعطيل التليمتري
 
-      # 5️⃣ Restart التطبيق عبر pm2
       - name: Restart app
         run: |
           cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
