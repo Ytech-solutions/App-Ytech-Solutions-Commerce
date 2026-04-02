@@ -1,0 +1,29 @@
+name: Deploy App
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  deploy:
+    runs-on: self-hosted المحلي
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce  
+          npm install
+
+      - name: Build app
+        run: |
+          cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
+          npm run build
+
+      - name: Restart app
+        run: |
+          cd /home/manalmrbt/Desktop/projets/App-Ytech-Solutions-Commerce
+          pm2 restart app || pm2 start app
