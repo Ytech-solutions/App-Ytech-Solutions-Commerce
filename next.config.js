@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  devIndicators: false,
+  // Supprimer l'icône Next.js de développement
+  devIndicators: {
+    appIsrStatus: false,
+    buildActivity: false,
+    buildActivityPosition: 'bottom-right',
+  },
   experimental: {
     optimizeCss: true
   },
@@ -70,6 +75,8 @@ const nextConfig = {
   poweredByHeader: false,
   // Compression et optimisation
   compress: true,
+  // Désactiver les indicateurs de développement en production
+  disableSourceMaps: process.env.NODE_ENV === 'production',
   // Limite de taille des payloads
   // Note: bodyParser et responseLimit sont maintenant gérés différemment dans Next.js 16
 }
